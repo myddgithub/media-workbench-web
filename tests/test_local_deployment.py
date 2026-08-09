@@ -49,3 +49,15 @@ def test_pack_local_dist_script_is_zero_dep_standalone():
     assert "FFMPEG_BIN=vendor\\ffmpeg\\ffmpeg.exe" in pack
     # Embeddable ._pth ignores PYTHONPATH; project root must be listed explicitly.
     assert '"..\\\\.."' in pack or r'"..\.."' in pack
+
+
+def test_exe_launcher_and_pack_scripts_exist():
+    assert (ROOT / "launcher.py").is_file()
+    assert (ROOT / "MediaWorkbenchWeb.spec").is_file()
+    assert (ROOT / "scripts" / "pack_local_exe.ps1").is_file()
+    assert (ROOT / "scripts" / "pack_local_exe.sh").is_file()
+    launcher = (ROOT / "launcher.py").read_text(encoding="utf-8")
+    assert "def cmd_start" in launcher
+    assert "127.0.0.1" in launcher
+    assert "--stop" in launcher
+
