@@ -1,4 +1,4 @@
-. (Join-Path $PSScriptRoot "local_common.ps1")
+﻿. (Join-Path $PSScriptRoot "local_common.ps1")
 
 Initialize-LocalDirectories
 $config = Get-LocalConfiguration

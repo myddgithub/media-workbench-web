@@ -19,3 +19,8 @@ def test_local_deployment_is_loopback_only_and_has_separate_state():
 def test_local_one_click_commands_are_present():
     for name in ("start-local.cmd", "stop-local.cmd", "status-local.cmd"):
         assert (ROOT / name).is_file()
+
+
+def test_local_powershell_scripts_are_utf8_bom_for_windows_powershell_51():
+    for name in ("local_common.ps1", "start_local.ps1", "stop_local.ps1", "status_local.ps1"):
+        assert (ROOT / "scripts" / name).read_bytes().startswith(b"\xef\xbb\xbf")
