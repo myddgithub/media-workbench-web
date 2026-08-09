@@ -34,21 +34,22 @@ API 传递待处理路径。
 媒体读写由容器内 FFmpeg 完成，避免桌面 GUI、MoviePy 和 pydub 与 Web worker 生命周期耦合。
 视频切分/合并会重新编码为 H.264 + AAC；WAV 输出使用 PCM 16-bit。
 
-## 本地运行
+## Windows 本地版
 
-复制配置并把 `NAS_MEDIA_PATH` 改为本机测试目录：
+本地版和 NAS 版使用同一套代码，但进程、任务数据库、日志和媒体白名单完全独立。本机默认只开放
+`D:\`，不会自动加入 NAS 网络映射盘；Web 只监听 `127.0.0.1`，局域网其他设备无法访问。
 
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
+- 双击 `start-local.cmd`：启动独立的 Web 和媒体 Worker，并打开 `http://127.0.0.1:8768`。
+- 双击 `status-local.cmd`：查看两个进程及健康状态。
+- 双击 `stop-local.cmd`：没有运行中任务时安全停止；需要强制停止时运行
+  `powershell -ExecutionPolicy Bypass -File scripts/stop_local.ps1 -Force`。
 
-打开 `http://127.0.0.1:8768`。查看状态：
+首次启动会从 `.env.local.example` 生成不纳入 Git 的 `.env.local`。可在其中修改本地白名单目录和
+FFmpeg 路径；不要把 NAS 映射盘加入 `MEDIA_ROOTS`，除非明确要从本机处理 NAS 文件。本地任务库和
+日志位于 `.local/`，NAS 上的 `/volume1/docker/media-workbench-web/state` 不受本地启停影响。
 
-```bash
-docker compose ps
-docker compose logs -f worker
-```
+如需使用 Docker 做临时本机测试，仍可复制 `.env.example` 后运行 `docker compose up -d --build`；
+Windows 日常使用优先采用上述脚本，直接复用 `MediaConverter` 中现有的 FFmpeg，避免重复下载镜像。
 
 ## 绿联 NAS 部署
 

@@ -8,5 +8,7 @@ state/
 data/
 test-media/
 .venv/
+.env.local
+.local/
 dist/
 build/
