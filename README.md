@@ -68,6 +68,10 @@ cp .env.example .env
 bash scripts/deploy_nas.sh
 ```
 
+如果 NAS 本地已有包含 Python 3.11、`ffmpeg` 和 `ffprobe` 的可信镜像，可以在 `.env`
+中把它设为 `BASE_IMAGE` 并设置 `INSTALL_FFMPEG=0`，避免重复安装系统包。例如本机现有的
+YouTube 下载服务镜像可作为构建缓存来源；GitHub Actions 仍使用默认值构建完整独立镜像。
+
 访问 `http://192.168.1.2:8768`；远程访问使用 Tailscale 地址。该服务没有设计成公网文件站，
 不要通过 Funnel、Cloudflare Tunnel 或路由器端口转发直接公开。
 

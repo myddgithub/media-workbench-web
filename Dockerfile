@@ -3,15 +3,21 @@ FROM ${BASE_IMAGE}
 
 ARG APT_MIRROR=mirrors.tuna.tsinghua.edu.cn
 ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG INSTALL_FFMPEG=1
 
-RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources; \
+RUN if [ "${INSTALL_FFMPEG}" = "1" ]; then \
+      if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources; \
+      else \
+        sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list; \
+      fi \
+      && apt-get update \
+      && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
+      && rm -rf /var/lib/apt/lists/*; \
     else \
-      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list; \
-    fi \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+      command -v ffmpeg >/dev/null \
+      && command -v ffprobe >/dev/null; \
+    fi
 
 WORKDIR /app
 COPY requirements.txt .

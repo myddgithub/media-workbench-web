@@ -4,6 +4,7 @@ x-app-common: &app-common
     context: .
     args:
       BASE_IMAGE: ${BASE_IMAGE:-python:3.11-slim}
+      INSTALL_FFMPEG: ${INSTALL_FFMPEG:-1}
   restart: unless-stopped
   user: "${PUID:-1000}:${PGID:-10}"
   environment:
