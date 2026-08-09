@@ -53,24 +53,35 @@ Windows 日常使用优先采用上述脚本，直接复用 `MediaConverter` 中
 
 ### 分发到其他 Windows 电脑（零依赖）
 
-在本仓库（WSL，且 Windows 侧已装 Python 供打包使用）执行：
+#### 方案 A：exe 目录包（推荐给最终用户）
+
+在 Windows 或 WSL（可调用 `powershell.exe`）执行：
+
+```bash
+bash scripts/pack_local_exe.sh
+# 或: powershell -ExecutionPolicy Bypass -File scripts/pack_local_exe.ps1
+```
+
+生成：
+
+- 文件夹 `dist/MediaWorkbenchWeb/`（内含 `MediaWorkbenchWeb.exe`、`ffmpeg\`、`_internal\`）
+- 压缩包 `dist/MediaWorkbenchWeb-exe-v*.zip`
+
+对方：解压整个文件夹 → 双击 `MediaWorkbenchWeb.exe` → 浏览器
+`http://127.0.0.1:8768`。关闭控制台窗口即停止；也可用 `MediaWorkbenchWeb.exe --stop`。
+无需安装 Python / FFmpeg。
+
+#### 方案 B：便携源码 + 内嵌 Python zip
 
 ```bash
 bash scripts/pack_local_dist.sh
 ```
 
-会生成 `dist/media-workbench-web-local-v*-standalone.zip`，内含：
+生成 `dist/media-workbench-web-local-v*-standalone.zip`（`vendor/python` + `vendor/ffmpeg` +
+`start-local.cmd`）。同样零依赖，结构更透明，体积与 exe 包接近。
 
-- 程序源码与一键启动脚本
-- **便携 CPython**（`vendor/python`，已预装全部依赖，对方无需安装 Python、无需联网）
-- **FFmpeg**（`vendor/ffmpeg`，默认从 `MediaConverter/ffmpeg` 复制；可用 `FFMPEG_SRC` 覆盖）
-- `使用说明.txt` 与可编辑的 `.env.local.example`
-
-对方电脑只需 **Windows 10/11 x64**：解压后按需改 `MEDIA_ROOTS`，双击 `start-local.cmd` 即可打开
-`http://127.0.0.1:8768`。任务数据只写在解压目录的 `.local\`，与 NAS 部署隔离。
-
-打包机要求：能访问 `powershell.exe`，并有 Windows 版 Python 3.12（用于把 win_amd64 依赖装进便携运行时）。
-可选环境变量：`PYTHON_VERSION`、`HOST_WIN_PYTHON`、`FFMPEG_SRC`。
+打包机需要 Windows 版 Python 3.12 与 PyInstaller（exe 方案）或 pip（standalone 方案）。
+可选：`FFMPEG_SRC`、`HOST_WIN_PYTHON`、`PYTHON_VERSION`。
 
 ## 绿联 NAS 部署
 
