@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>音视频与 TextGrid 处理工作台</title>
+  <link rel="stylesheet" href="/static/style.css?v=1.0.0">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">NAS MEDIA WORKBENCH</p>
+      <h1>音视频与 TextGrid 处理工作台</h1>
+      <p class="subtitle">转换、同步切分、片段合并和区间抽取在 NAS 后台持续执行</p>
+    </div>
+    <div class="health-row">
+      <span id="workerBadge" class="badge pending">worker 检查中</span>
+      <span id="gpuBadge" class="badge muted">硬件加速检查中</span>
+      <span id="versionBadge" class="badge muted">v–</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="workspace card">
+      <nav class="tabs" aria-label="处理模式">
+        <button class="tab active" data-tab="convert">格式转换</button>
+        <button class="tab" data-tab="cut">同步切分</button>
+        <button class="tab" data-tab="merge">片段合并</button>
+        <button class="tab" data-tab="extract">区间抽取</button>
+      </nav>
+
+      <form id="convertForm" class="tool-panel active" data-kind="convert">
+        <div class="panel-heading">
+          <div><h2>格式转换</h2><p>支持单个文件或文件夹递归批量转换，并保留子目录结构。</p></div>
+          <button type="button" class="secondary scan-button" data-scan-mode="convert">扫描文件</button>
+        </div>
+        <div class="path-grid">
+          <label>输入位置<select id="convertInputRoot" class="root-select"></select></label>
+          <label class="path-field">输入文件或目录
+            <span><input id="convertInputPath" placeholder="例如：下载/YouTube_videos"><button type="button" class="browse" data-picker="convertInputPath" data-root="convertInputRoot" data-files="true">选择</button></span>
+          </label>
+          <label>输出位置<select id="convertOutputRoot" class="root-select"></select></label>
+          <label class="path-field">输出目录
+            <span><input id="convertOutputPath" placeholder="例如：下载/converted"><button type="button" class="browse" data-picker="convertOutputPath" data-root="convertOutputRoot">选择</button></span>
+          </label>
+        </div>
+        <div class="form-grid four">
+          <label>转换模式<select id="convertMode"><option value="video_to_audio">视频 → 音频</option><option value="audio_to_audio">音频 → 音频</option><option value="video_to_video">视频 → 视频</option><option value="compress">视频压缩</option></select></label>
+          <label>音频编码<select id="audioCodec"><option value="pcm_s16le">WAV PCM 16-bit</option><option value="libmp3lame">MP3</option><option value="aac">AAC / M4A</option><option value="flac">FLAC</option><option value="libvorbis">Ogg Vorbis</option><option value="libopus">Opus</option></select></label>
+          <label>采样率<select id="sampleRate"><option value="16000">16000 Hz</option><option value="22050">22050 Hz</option><option value="44100">44100 Hz</option><option value="48000">48000 Hz</option><option value="96000">96000 Hz</option></select></label>
+          <label>声道<select id="channels"><option value="1">单声道</option><option value="2">双声道</option></select></label>
+          <label>音频码率<select id="audioBitrate"><option>128k</option><option selected>192k</option><option>256k</option><option>320k</option></select></label>
+          <label>视频编码<select id="videoCodec"><option value="libx264">H.264（CPU）</option><option value="h264_qsv">H.264（Intel QSV）</option><option value="libx265">H.265（CPU）</option><option value="hevc_qsv">H.265（Intel QSV）</option><option value="libvpx-vp9">VP9</option><option value="mpeg4">MPEG-4</option></select></label>
+          <label>质量 CRF / Q<select id="crf"><option>18</option><option>20</option><option selected>23</option><option>25</option><option>28</option><option>30</option></select></label>
+          <label>分辨率<select id="resolution"><option value="">保持原分辨率</option><option>1920x1080</option><option>1280x720</option><option>854x480</option><option>640x480</option></select></label>
+          <label>编码速度<select id="preset"><option>ultrafast</option><option>fast</option><option selected>medium</option><option>slow</option><option>veryslow</option></select></label>
+          <label>视频容器<select id="videoFormat"><option>.mp4</option><option>.mkv</option><option>.webm</option></select></label>
+          <label>并行文件数<select id="convertWorkers"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+        </div>
+        <div class="toggles"><label><input id="recursive" type="checkbox" checked>递归扫描子目录</label><label><input id="convertOverwrite" type="checkbox">覆盖已有结果</label></div>
+        <div class="preset-row"><span>快捷预设</span><button type="button" data-preset="corpus">语料 WAV 16k 单声道</button><button type="button" data-preset="mp3">MP3 192k</button><button type="button" data-preset="compress">视频压缩 CRF28</button><button type="button" data-preset="qsv">Intel 快速转码</button></div>
+        <div class="submit-row"><span id="convertScan" class="scan-result"></span><button class="primary" type="submit">提交转换任务</button></div>
+      </form>
+
+      <form id="cutForm" class="tool-panel" data-kind="cut">
+        <div class="panel-heading"><div><h2>同步切分</h2><p>按固定时长或最近的 SG 层边界同步切分 MP4、WAV 和 TextGrid。</p></div><button type="button" class="secondary scan-button" data-scan-mode="cme">扫描文件组</button></div>
+        <div class="path-grid cme-paths" data-prefix="cut"></div>
+        <div class="form-grid three">
+          <label>每段目标长度（秒）<input id="segmentLength" type="number" min="1" max="86400" step="1" value="300"></label>
+          <label>并行文件组<select id="cutWorkers"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></label>
+        </div>
+        <div class="toggles content-options" data-prefix="cut"><label><input type="checkbox" data-content="audio" checked>音频 WAV</label><label><input type="checkbox" data-content="video" checked>视频 MP4</label><label><input type="checkbox" data-content="textgrid" checked>TextGrid</label><label><input id="sgAlign" type="checkbox" checked>强制寻找 SG 层边界</label><label><input id="cutOverwrite" type="checkbox">覆盖已有结果</label></div>
+        <div class="submit-row"><span id="cutScan" class="scan-result"></span><button class="primary" type="submit">提交切分任务</button></div>
+      </form>
+
+      <form id="mergeForm" class="tool-panel" data-kind="merge">
+        <div class="panel-heading"><div><h2>片段合并</h2><p>按 _segNNN 顺序合并，TextGrid 时长优先用于累计时间轴，避免漂移。</p></div><button type="button" class="secondary scan-button" data-scan-mode="cme">扫描片段</button></div>
+        <div class="path-grid cme-paths" data-prefix="merge"></div>
+        <div class="form-grid two">
+          <label>待合并前缀（每行一个；留空自动发现）<textarea id="mergePrefixes" rows="5" placeholder="例如：hblvd-1"></textarea></label>
+          <div><label>并行合并组<select id="mergeWorkers"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></label><p class="hint">默认严格检查三件套。某类文件不存在时，请取消勾选相应类型。</p></div>
+        </div>
+        <div class="toggles content-options" data-prefix="merge"><label><input type="checkbox" data-content="audio" checked>音频 WAV</label><label><input type="checkbox" data-content="video" checked>视频 MP4</label><label><input type="checkbox" data-content="textgrid" checked>TextGrid</label><label><input id="strictTriplets" type="checkbox" checked>缺少配套文件时停止</label><label><input id="mergeOverwrite" type="checkbox">覆盖已有结果</label></div>
+        <div class="submit-row"><span id="mergeScan" class="scan-result"></span><button class="primary" type="submit">提交合并任务</button></div>
+      </form>
+
+      <form id="extractForm" class="tool-panel" data-kind="extract">
+        <div class="panel-heading"><div><h2>区间抽取</h2><p>从同名 MP4、WAV、TextGrid 中同步抽取多个时间区间。</p></div><button type="button" class="secondary scan-button" data-scan-mode="cme">扫描文件组</button></div>
+        <div class="path-grid cme-paths" data-prefix="extract"></div>
+        <div class="form-grid two">
+          <label>主文件名（不含扩展名）<input id="extractBase" placeholder="例如：hblvd-1"></label>
+          <label>区间列表（每行一个）<textarea id="extractRanges" rows="6" placeholder="0-60&#10;120.5-180"></textarea></label>
+        </div>
+        <div class="toggles content-options" data-prefix="extract"><label><input type="checkbox" data-content="audio" checked>音频 WAV</label><label><input type="checkbox" data-content="video" checked>视频 MP4</label><label><input type="checkbox" data-content="textgrid" checked>TextGrid</label><label>并行区间<select id="extractWorkers"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></label><label><input id="extractOverwrite" type="checkbox">覆盖已有结果</label></div>
+        <div class="submit-row"><span id="extractScan" class="scan-result"></span><button class="primary" type="submit">提交抽取任务</button></div>
+      </form>
+    </section>
+
+    <section class="jobs card">
+      <div class="section-heading"><div><p class="eyebrow">BACKGROUND QUEUE</p><h2>任务队列</h2></div><button id="refreshJobs" class="secondary">立即刷新</button></div>
+      <div class="job-list" id="jobList"><p class="empty">正在读取任务……</p></div>
+    </section>
+  </main>
+
+  <dialog id="pickerDialog" class="picker-dialog">
+    <div class="dialog-heading"><div><p class="eyebrow">NAS PATH</p><h3>选择 NAS 文件或目录</h3></div><button class="icon-button" data-close-picker aria-label="关闭">×</button></div>
+    <div id="pickerPath" class="picker-path"></div>
+    <div id="pickerItems" class="picker-items"></div>
+    <div class="dialog-actions"><button type="button" class="secondary" id="pickerUp">上一级</button><span id="pickerSelection" class="hint"></span><button type="button" class="primary" id="pickerChoose">选择当前目录</button></div>
+  </dialog>
+
+  <dialog id="jobDialog" class="job-dialog">
+    <div class="dialog-heading"><div><p class="eyebrow">JOB DETAIL</p><h3 id="jobDialogTitle">任务详情</h3></div><button class="icon-button" data-close-job aria-label="关闭">×</button></div>
+    <div id="jobDetail"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/app.js?v=1.0.0"></script>
+</body>
+</html>

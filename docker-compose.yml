@@ -1,0 +1,45 @@
+x-app-common: &app-common
+  image: ${APP_IMAGE:-media-workbench-web:local}
+  build:
+    context: .
+    args:
+      BASE_IMAGE: ${BASE_IMAGE:-python:3.11-slim}
+  restart: unless-stopped
+  user: "${PUID:-1000}:${PGID:-10}"
+  environment:
+    APP_TITLE: 音视频与 TextGrid 处理工作台
+    MEDIA_ROOTS: Mydata=/data/mydata
+    STATE_DIR: /state
+    JOB_POLL_SECONDS: "1"
+  volumes:
+    - ${NAS_MEDIA_PATH:-/volume2/Mydata}:/data/mydata
+    - ./state:/state
+  devices:
+    - /dev/dri:/dev/dri
+  group_add:
+    - "44"
+    - "105"
+
+services:
+  web:
+    <<: *app-common
+    container_name: media-workbench-web
+    ports:
+      - "${WEB_PORT:-8768}:8768"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8768/health', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+
+  worker:
+    <<: *app-common
+    container_name: media-workbench-worker
+    command: ["python", "-u", "-m", "app.worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck", "worker"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
