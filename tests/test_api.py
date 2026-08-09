@@ -7,7 +7,12 @@ client = TestClient(app)
 
 
 def test_index_and_config_are_available():
-    assert client.get("/").status_code == 200
+    index = client.get("/")
+    assert index.status_code == 200
+    assert 'href="/static/favicon.png"' in index.text
+    favicon = client.get("/static/favicon.png")
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"] == "image/png"
     response = client.get("/api/config")
     assert response.status_code == 200
     assert response.json()["roots"][0]["label"] == "Test"
