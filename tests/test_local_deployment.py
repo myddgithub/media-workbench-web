@@ -10,6 +10,7 @@ def test_local_deployment_is_loopback_only_and_has_separate_state():
     example = (ROOT / ".env.local.example").read_text(encoding="utf-8")
 
     assert 'if ($webHost -ne "127.0.0.1"' in start
+    assert 'if ($listener -and $null -eq $webProcessId)' in start
     assert 'Join-Path $ProjectRoot ".local"' in common
     assert "MEDIA_ROOTS=本机D盘=D:\\" in example
     assert "192.168.1.2" not in example

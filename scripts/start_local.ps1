@@ -18,7 +18,7 @@ if ($webHost -ne "127.0.0.1" -and $webHost -ne "localhost") {
 $webProcessId = Get-ManagedProcessId "web"
 $workerProcessId = Get-ManagedProcessId "worker"
 $listener = Get-NetTCPConnection -LocalPort $webPort -State Listen -ErrorAction SilentlyContinue
-if ($listener -and ($null -eq $webProcessId -or $listener.OwningProcess -notcontains $webProcessId)) {
+if ($listener -and $null -eq $webProcessId) {
     throw "端口 $webPort 已被其他程序占用（PID $($listener.OwningProcess -join ', ')）"
 }
 
