@@ -9,11 +9,23 @@ $LogRoot = Join-Path $RuntimeRoot "logs"
 $PythonExe = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $LocalConfigPath = Join-Path $ProjectRoot ".env.local"
 $LocalConfigExamplePath = Join-Path $ProjectRoot ".env.local.example"
+$RequirementsPath = Join-Path $ProjectRoot "requirements.txt"
 
 function Initialize-LocalDirectories {
     foreach ($path in @($RuntimeRoot, $StateRoot, $RunRoot, $LogRoot)) {
         New-Item -ItemType Directory -Path $path -Force | Out-Null
     }
+}
+
+function Resolve-LocalPath([string]$PathText) {
+    if ([string]::IsNullOrWhiteSpace($PathText)) {
+        throw "路径不能为空"
+    }
+    $expanded = [Environment]::ExpandEnvironmentVariables($PathText.Trim())
+    if ([System.IO.Path]::IsPathRooted($expanded)) {
+        return [System.IO.Path]::GetFullPath($expanded)
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $ProjectRoot $expanded))
 }
 
 function Get-LocalConfiguration {
@@ -23,6 +35,7 @@ function Get-LocalConfiguration {
         }
         Copy-Item -LiteralPath $LocalConfigExamplePath -Destination $LocalConfigPath
         Write-Host "已创建本地配置：$LocalConfigPath"
+        Write-Host "如本机盘符或目录不同，请编辑 MEDIA_ROOTS 后重新启动。"
     }
 
     $config = @{}
@@ -41,6 +54,9 @@ function Get-LocalConfiguration {
             throw "本地配置缺少 $required"
         }
     }
+
+    $config["FFMPEG_BIN"] = Resolve-LocalPath $config["FFMPEG_BIN"]
+    $config["FFPROBE_BIN"] = Resolve-LocalPath $config["FFPROBE_BIN"]
     return $config
 }
 
@@ -56,13 +72,101 @@ function Set-LocalEnvironment([hashtable]$Config) {
     $env:NO_PROXY = "127.0.0.1,localhost"
 }
 
-function Assert-LocalPrerequisites([hashtable]$Config) {
+function Get-SystemPythonCandidates {
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $pyLauncher = Get-Command py.exe -ErrorAction SilentlyContinue
+    if ($pyLauncher) {
+        foreach ($arg in @("-3.12", "-3.11", "-3.10", "-3")) {
+            try {
+                $resolved = & $pyLauncher.Source $arg -c "import sys; print(sys.executable)" 2>$null
+                if ($LASTEXITCODE -eq 0 -and $resolved) {
+                    $candidates.Add($resolved.Trim())
+                }
+            } catch {
+                # Try next launcher argument.
+            }
+        }
+    }
+    foreach ($name in @("python.exe", "python3.exe")) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd -and $cmd.Source) {
+            $candidates.Add($cmd.Source)
+        }
+    }
+    return @($candidates | Select-Object -Unique)
+}
+
+function Test-PythonVersion([string]$Exe) {
+    try {
+        $raw = & $Exe -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $raw) { return $false }
+        $parts = $raw.Trim().Split(".")
+        $major = [int]$parts[0]
+        $minor = [int]$parts[1]
+        return ($major -eq 3 -and $minor -ge 10 -and $minor -lt 14)
+    } catch {
+        return $false
+    }
+}
+
+function Find-SystemPython {
+    foreach ($candidate in Get-SystemPythonCandidates) {
+        if (Test-PythonVersion $candidate) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
+function Test-LocalPythonImports {
     if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
-        throw "缺少本地 Python 环境：$PythonExe"
+        return $false
+    }
+    & $PythonExe -c "import fastapi, uvicorn, pydantic, textgrid" 2>$null
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Ensure-LocalPythonEnvironment {
+    $marker = Join-Path $ProjectRoot ".venv\.requirements.sha256"
+    $currentHash = $null
+    if (Test-Path -LiteralPath $RequirementsPath -PathType Leaf) {
+        $currentHash = (Get-FileHash -LiteralPath $RequirementsPath -Algorithm SHA256).Hash
+    }
+
+    if ((Test-Path -LiteralPath $PythonExe -PathType Leaf) -and $currentHash) {
+        if ((Test-Path -LiteralPath $marker -PathType Leaf) -and
+            ((Get-Content -LiteralPath $marker -Raw).Trim() -eq $currentHash)) {
+            return
+        }
+        # Existing venv from older installs: accept it if imports work, then write marker.
+        if ((-not (Test-Path -LiteralPath $marker -PathType Leaf)) -and (Test-LocalPythonImports)) {
+            New-Item -ItemType Directory -Path (Split-Path -Parent $marker) -Force | Out-Null
+            [System.IO.File]::WriteAllText($marker, $currentHash)
+            return
+        }
+    } elseif ((Test-Path -LiteralPath $PythonExe -PathType Leaf) -and -not $currentHash) {
+        return
+    }
+
+    $setupScript = Join-Path $PSScriptRoot "setup_local.ps1"
+    if (-not (Test-Path -LiteralPath $setupScript -PathType Leaf)) {
+        throw "缺少本地环境安装脚本：$setupScript"
+    }
+    Write-Host "正在准备本地 Python 环境（首次启动或依赖变更时会执行）..."
+    & $setupScript
+    if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
+        throw "本地 Python 环境安装后仍缺少：$PythonExe"
+    }
+}
+
+function Assert-LocalPrerequisites([hashtable]$Config) {
+    Ensure-LocalPythonEnvironment
+    if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
+        throw "缺少本地 Python 环境：$PythonExe。请先安装 Python 3.10–3.12，再双击 start-local.cmd。"
     }
     foreach ($name in @("FFMPEG_BIN", "FFPROBE_BIN")) {
         if (-not (Test-Path -LiteralPath $Config[$name] -PathType Leaf)) {
-            throw "本地配置中的 $name 不存在：$($Config[$name])"
+            throw "本地配置中的 $name 不存在：$($Config[$name])。若使用分发包，请确认 vendor\ffmpeg 目录完整。"
         }
     }
 }
