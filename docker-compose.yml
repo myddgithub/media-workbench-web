@@ -1,10 +1,5 @@
 x-app-common: &app-common
   image: ${APP_IMAGE:-media-workbench-web:local}
-  build:
-    context: .
-    args:
-      BASE_IMAGE: ${BASE_IMAGE:-python:3.11-slim}
-      INSTALL_FFMPEG: ${INSTALL_FFMPEG:-1}
   restart: unless-stopped
   user: "${PUID:-1000}:${PGID:-10}"
   environment:
@@ -24,6 +19,11 @@ x-app-common: &app-common
 services:
   web:
     <<: *app-common
+    build:
+      context: .
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-python:3.11-slim}
+        INSTALL_FFMPEG: ${INSTALL_FFMPEG:-1}
     container_name: media-workbench-web
     ports:
       - "${WEB_PORT:-8768}:8768"
@@ -38,6 +38,9 @@ services:
     <<: *app-common
     container_name: media-workbench-worker
     command: ["python", "-u", "-m", "app.worker"]
+    depends_on:
+      web:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-m", "app.healthcheck", "worker"]
       interval: 15s
