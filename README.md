@@ -51,23 +51,26 @@ FFmpeg 路径；不要把 NAS 映射盘加入 `MEDIA_ROOTS`，除非明确要从
 如需使用 Docker 做临时本机测试，仍可复制 `.env.example` 后运行 `docker compose up -d --build`；
 Windows 日常使用优先采用上述脚本，直接复用 `MediaConverter` 中现有的 FFmpeg，避免重复下载镜像。
 
-### 分发到其他 Windows 电脑
+### 分发到其他 Windows 电脑（零依赖）
 
-在本仓库（Linux/WSL 或 Git Bash）执行：
+在本仓库（WSL，且 Windows 侧已装 Python 供打包使用）执行：
 
 ```bash
 bash scripts/pack_local_dist.sh
 ```
 
-会生成 `dist/media-workbench-web-local-v*.zip`，内含：
+会生成 `dist/media-workbench-web-local-v*-standalone.zip`，内含：
 
 - 程序源码与一键启动脚本
-- 自带 `vendor/ffmpeg`（从 `MediaConverter/ffmpeg` 复制；可用环境变量 `FFMPEG_SRC` 覆盖来源）
+- **便携 CPython**（`vendor/python`，已预装全部依赖，对方无需安装 Python、无需联网）
+- **FFmpeg**（`vendor/ffmpeg`，默认从 `MediaConverter/ffmpeg` 复制；可用 `FFMPEG_SRC` 覆盖）
 - `使用说明.txt` 与可编辑的 `.env.local.example`
 
-对方电脑需要已安装 **Python 3.10–3.12**（勾选加入 PATH）。解压后双击 `start-local.cmd`：
-首次会自动创建 `.venv` 并安装依赖（需联网），之后打开 `http://127.0.0.1:8768`。
-按对方盘符修改 `.env.local` 中的 `MEDIA_ROOTS`。任务数据只写在解压目录的 `.local\`，与 NAS 部署隔离。
+对方电脑只需 **Windows 10/11 x64**：解压后按需改 `MEDIA_ROOTS`，双击 `start-local.cmd` 即可打开
+`http://127.0.0.1:8768`。任务数据只写在解压目录的 `.local\`，与 NAS 部署隔离。
+
+打包机要求：能访问 `powershell.exe`，并有 Windows 版 Python 3.12（用于把 win_amd64 依赖装进便携运行时）。
+可选环境变量：`PYTHON_VERSION`、`HOST_WIN_PYTHON`、`FFMPEG_SRC`。
 
 ## 绿联 NAS 部署
 

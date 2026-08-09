@@ -16,6 +16,8 @@ def test_local_deployment_is_loopback_only_and_has_separate_state():
     assert "192.168.1.2" not in example
     assert "function Resolve-LocalPath" in common
     assert "Ensure-LocalPythonEnvironment" in common
+    assert "vendor\\python\\python.exe" in common
+    assert 'PythonRuntimeKind = "portable"' in common
 
 
 def test_local_one_click_commands_are_present():
@@ -36,9 +38,14 @@ def test_local_powershell_scripts_are_utf8_bom_for_windows_powershell_51():
         assert (ROOT / "scripts" / name).read_bytes().startswith(b"\xef\xbb\xbf")
 
 
-def test_pack_local_dist_script_bundles_vendor_ffmpeg_and_excludes_runtime():
+def test_pack_local_dist_script_is_zero_dep_standalone():
     pack = (ROOT / "scripts" / "pack_local_dist.sh").read_text(encoding="utf-8")
     assert "vendor/ffmpeg" in pack
+    assert "vendor/python" in pack
+    assert "embed-amd64" in pack
+    assert "standalone" in pack
     assert "使用说明.txt" in pack
-    assert ".venv" in pack
+    assert "不需要安装 Python" in pack
     assert "FFMPEG_BIN=vendor\\ffmpeg\\ffmpeg.exe" in pack
+    # Embeddable ._pth ignores PYTHONPATH; project root must be listed explicitly.
+    assert '"..\\\\.."' in pack or r'"..\.."' in pack

@@ -6,10 +6,20 @@ $RuntimeRoot = Join-Path $ProjectRoot ".local"
 $StateRoot = Join-Path $RuntimeRoot "state"
 $RunRoot = Join-Path $RuntimeRoot "run"
 $LogRoot = Join-Path $RuntimeRoot "logs"
-$PythonExe = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$PortablePythonExe = Join-Path $ProjectRoot "vendor\python\python.exe"
+$VenvPythonExe = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $LocalConfigPath = Join-Path $ProjectRoot ".env.local"
 $LocalConfigExamplePath = Join-Path $ProjectRoot ".env.local.example"
 $RequirementsPath = Join-Path $ProjectRoot "requirements.txt"
+
+# Prefer zero-dep portable runtime shipped in distribution zips.
+if (Test-Path -LiteralPath $PortablePythonExe -PathType Leaf) {
+    $PythonExe = $PortablePythonExe
+    $PythonRuntimeKind = "portable"
+} else {
+    $PythonExe = $VenvPythonExe
+    $PythonRuntimeKind = "venv"
+}
 
 function Initialize-LocalDirectories {
     foreach ($path in @($RuntimeRoot, $StateRoot, $RunRoot, $LogRoot)) {
@@ -70,6 +80,11 @@ function Set-LocalEnvironment([hashtable]$Config) {
     $env:JOB_POLL_SECONDS = "1"
     $env:PYTHONPATH = $ProjectRoot
     $env:NO_PROXY = "127.0.0.1,localhost"
+    # Keep embeddable/portable runtime self-contained.
+    if ($PythonRuntimeKind -eq "portable") {
+        $env:PYTHONHOME = Split-Path -Parent $PythonExe
+        $env:PYTHONNOUSERSITE = "1"
+    }
 }
 
 function Get-SystemPythonCandidates {
@@ -122,11 +137,30 @@ function Test-LocalPythonImports {
     if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
         return $false
     }
-    & $PythonExe -c "import fastapi, uvicorn, pydantic, textgrid" 2>$null
-    return ($LASTEXITCODE -eq 0)
+    $prevHome = $env:PYTHONHOME
+    $prevNoUser = $env:PYTHONNOUSERSITE
+    try {
+        if ($PythonRuntimeKind -eq "portable") {
+            $env:PYTHONHOME = Split-Path -Parent $PythonExe
+            $env:PYTHONNOUSERSITE = "1"
+        }
+        & $PythonExe -c "import fastapi, uvicorn, pydantic, textgrid" 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        if ($null -eq $prevHome) { Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue } else { $env:PYTHONHOME = $prevHome }
+        if ($null -eq $prevNoUser) { Remove-Item Env:PYTHONNOUSERSITE -ErrorAction SilentlyContinue } else { $env:PYTHONNOUSERSITE = $prevNoUser }
+    }
 }
 
 function Ensure-LocalPythonEnvironment {
+    # Zero-dep distribution: portable runtime is already complete.
+    if ($PythonRuntimeKind -eq "portable") {
+        if (-not (Test-LocalPythonImports)) {
+            throw "便携 Python 运行时损坏或不完整：$PythonExe。请重新解压完整分发包（勿删 vendor\python）。"
+        }
+        return
+    }
+
     $marker = Join-Path $ProjectRoot ".venv\.requirements.sha256"
     $currentHash = $null
     if (Test-Path -LiteralPath $RequirementsPath -PathType Leaf) {
@@ -150,7 +184,7 @@ function Ensure-LocalPythonEnvironment {
 
     $setupScript = Join-Path $PSScriptRoot "setup_local.ps1"
     if (-not (Test-Path -LiteralPath $setupScript -PathType Leaf)) {
-        throw "缺少本地环境安装脚本：$setupScript"
+        throw "缺少本地环境安装脚本：$setupScript。开发机请保留 scripts\setup_local.ps1；分发包应使用 vendor\python。"
     }
     Write-Host "正在准备本地 Python 环境（首次启动或依赖变更时会执行）..."
     & $setupScript
@@ -162,7 +196,7 @@ function Ensure-LocalPythonEnvironment {
 function Assert-LocalPrerequisites([hashtable]$Config) {
     Ensure-LocalPythonEnvironment
     if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
-        throw "缺少本地 Python 环境：$PythonExe。请先安装 Python 3.10–3.12，再双击 start-local.cmd。"
+        throw "缺少本地 Python 环境：$PythonExe。开发机请安装 Python 3.10–3.12 后启动；分发包请确认 vendor\python 完整。"
     }
     foreach ($name in @("FFMPEG_BIN", "FFPROBE_BIN")) {
         if (-not (Test-Path -LiteralPath $Config[$name] -PathType Leaf)) {
