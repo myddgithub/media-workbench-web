@@ -164,7 +164,22 @@ function Ensure-LocalPythonEnvironment {
     $marker = Join-Path $ProjectRoot ".venv\.requirements.sha256"
     $currentHash = $null
     if (Test-Path -LiteralPath $RequirementsPath -PathType Leaf) {
-        $currentHash = (Get-FileHash -LiteralPath $RequirementsPath -Algorithm SHA256).Hash
+        # Prefer .NET hash: Get-FileHash is sometimes unavailable under limited PS sessions.
+        try {
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            try {
+                $bytes = [System.IO.File]::ReadAllBytes($RequirementsPath)
+                $currentHash = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "")
+            } finally {
+                $sha.Dispose()
+            }
+        } catch {
+            if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+                $currentHash = (Get-FileHash -LiteralPath $RequirementsPath -Algorithm SHA256).Hash
+            } else {
+                throw "无法计算 requirements 哈希：$($_.Exception.Message)"
+            }
+        }
     }
 
     if ((Test-Path -LiteralPath $PythonExe -PathType Leaf) -and $currentHash) {
