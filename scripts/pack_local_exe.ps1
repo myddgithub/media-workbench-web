@@ -75,14 +75,17 @@ FFPROBE_BIN=ffmpeg/ffprobe.exe
 
 Write-Utf8NoBom (Join-Path $outDir "使用说明.txt") @"
 音视频与 TextGrid 处理工作台 — Windows 本地版（exe）
-====================================================
+Media & TextGrid Workbench — Windows local edition (exe)
+========================================================
 
+【中文】
 一、使用方法
 1. 解压/复制整个 MediaWorkbenchWeb 文件夹到任意位置（不要只拷贝 exe）
 2. 如有需要，编辑 .env.local（首次运行会自动生成）中的 MEDIA_ROOTS
 3. 双击 MediaWorkbenchWeb.exe
 4. 浏览器打开 http://127.0.0.1:8768
-5. 关闭黑色控制台窗口即停止服务
+5. 页面右上角可切换 中文 / EN
+6. 关闭黑色控制台窗口即停止服务
    或在本目录命令行运行：MediaWorkbenchWeb.exe --stop
    查看状态：MediaWorkbenchWeb.exe --status
 
@@ -95,14 +98,31 @@ Write-Utf8NoBom (Join-Path $outDir "使用说明.txt") @"
 三、注意
 - 杀毒软件可能拦截，请添加信任
 - 不要把 NAS 映射盘写入 MEDIA_ROOTS，除非明确要在本机处理 NAS 文件
+
+【English】
+1. Keep the whole MediaWorkbenchWeb folder (do not copy only the .exe)
+2. Edit MEDIA_ROOTS in .env.local if needed (created on first run)
+3. Double-click MediaWorkbenchWeb.exe
+4. Open http://127.0.0.1:8768
+5. Use the top-right 中文 / EN switcher for UI language
+6. Close the console window to stop, or run: MediaWorkbenchWeb.exe --stop
+   Status: MediaWorkbenchWeb.exe --status
+
+Notes: zero-dep (no Python/FFmpeg install); Windows 10/11 x64; job data in .local\;
+keep ffmpeg\ and _internal\ next to the exe. Loopback only (127.0.0.1).
 "@
 
-# Convenience stop script (single-quoted so PowerShell does not expand %~dp0)
+# Convenience stop scripts (single-quoted so PowerShell does not expand %~dp0)
 @(
     '@echo off',
     '"%~dp0MediaWorkbenchWeb.exe" --stop',
     'pause'
 ) | Set-Content -LiteralPath (Join-Path $outDir "停止服务.cmd") -Encoding ASCII
+@(
+    '@echo off',
+    '"%~dp0MediaWorkbenchWeb.exe" --stop',
+    'pause'
+) | Set-Content -LiteralPath (Join-Path $outDir "stop.cmd") -Encoding ASCII
 
 # Zip the onedir folder
 $stamp = Get-Date -Format "yyyyMMdd"

@@ -66,6 +66,7 @@ def config():
     return {
         "title": settings.app_title,
         "version": __version__,
+        "deployment": settings.deployment,
         "roots": [
             {
                 "key": root.key,

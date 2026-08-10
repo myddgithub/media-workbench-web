@@ -9,8 +9,14 @@
 
   const M = {
     zh: {
+      eyebrow: "NAS MEDIA WORKBENCH",
+      eyebrowLocal: "LOCAL MEDIA WORKBENCH",
       appTitle: "音视频与 TextGrid 处理工作台",
+      appTitleLocal: "音视频与 TextGrid 处理工作台（本地版）",
       subtitle: "转换、同步切分、片段合并和区间抽取在 NAS 后台持续执行",
+      subtitleLocal: "转换、同步切分、片段合并和区间抽取在本机后台持续执行",
+      pathEyebrow: "NAS PATH",
+      pathEyebrowLocal: "LOCAL PATH",
       workerChecking: "worker 检查中",
       workerOk: "worker 正常",
       workerDown: "worker 未就绪",
@@ -85,6 +91,7 @@
       loadingJobs: "正在读取任务……",
       noJobs: "还没有任务。可从上方任一功能页提交。",
       pickerTitle: "选择 NAS 文件或目录",
+      pickerTitleLocal: "选择本地文件或目录",
       close: "关闭",
       upLevel: "上一级",
       chooseDir: "选择当前目录",
@@ -149,8 +156,14 @@
       errRangeBeyond: "抽取区间超出源文件时长",
     },
     en: {
+      eyebrow: "NAS MEDIA WORKBENCH",
+      eyebrowLocal: "LOCAL MEDIA WORKBENCH",
       appTitle: "Media & TextGrid Workbench",
+      appTitleLocal: "Media & TextGrid Workbench (Local)",
       subtitle: "Convert, sync-cut, merge, and extract run in the background on the NAS",
+      subtitleLocal: "Convert, sync-cut, merge, and extract run in the background on this PC",
+      pathEyebrow: "NAS PATH",
+      pathEyebrowLocal: "LOCAL PATH",
       workerChecking: "Checking worker…",
       workerOk: "Worker OK",
       workerDown: "Worker not ready",
@@ -225,6 +238,7 @@
       loadingJobs: "Loading jobs…",
       noJobs: "No jobs yet. Submit one from a tool tab above.",
       pickerTitle: "Choose a NAS file or folder",
+      pickerTitleLocal: "Choose a local file or folder",
       close: "Close",
       upLevel: "Up",
       chooseDir: "Use this folder",
@@ -308,6 +322,23 @@
   ];
 
   let lang = "zh";
+  /** @type {"nas"|"local"} */
+  let deployment = "nas";
+
+  /** Keys that switch wording for local Windows edition vs NAS. */
+  const DEPLOY_KEYS = {
+    eyebrow: { nas: "eyebrow", local: "eyebrowLocal" },
+    appTitle: { nas: "appTitle", local: "appTitleLocal" },
+    subtitle: { nas: "subtitle", local: "subtitleLocal" },
+    pathEyebrow: { nas: "pathEyebrow", local: "pathEyebrowLocal" },
+    pickerTitle: { nas: "pickerTitle", local: "pickerTitleLocal" },
+  };
+
+  function resolveKey(key) {
+    const map = DEPLOY_KEYS[key];
+    if (!map) return key;
+    return map[deployment] || map.nas || key;
+  }
 
   function normalize(v) {
     if (!v) return null;
@@ -350,14 +381,26 @@
   }
 
   function t(key, vars) {
+    const resolved = resolveKey(key);
     const table = M[lang] || M.zh;
-    let s = table[key] ?? M.zh[key] ?? key;
+    let s = table[resolved] ?? M.zh[resolved] ?? table[key] ?? M.zh[key] ?? key;
     if (vars) {
       Object.entries(vars).forEach(([k, v]) => {
         s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
       });
     }
     return s;
+  }
+
+  function setDeployment(next) {
+    const d = String(next || "nas").toLowerCase() === "local" ? "local" : "nas";
+    if (d === deployment) {
+      applyStatic();
+      return;
+    }
+    deployment = d;
+    document.documentElement.setAttribute("data-deployment", deployment);
+    applyStatic();
   }
 
   function translateMessage(msg) {
@@ -465,9 +508,13 @@
     kindLabel,
     statusLabel,
     applyStatic,
+    setDeployment,
     init,
     get lang() {
       return lang;
+    },
+    get deployment() {
+      return deployment;
     },
     setLang(next, onChange) {
       const n = normalize(next) || "zh";

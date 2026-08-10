@@ -15,7 +15,13 @@ def test_index_and_config_are_available():
     assert favicon.headers["content-type"] == "image/png"
     response = client.get("/api/config")
     assert response.status_code == 200
-    assert response.json()["roots"][0]["label"] == "Test"
+    body = response.json()
+    assert body["roots"][0]["label"] == "Test"
+    assert body.get("deployment") in ("nas", "local")
+    i18n = client.get("/static/i18n.js")
+    assert i18n.status_code == 200
+    assert "appTitleLocal" in i18n.text
+    assert "setDeployment" in i18n.text
 
 
 def test_create_scan_and_cancel_conversion_job():

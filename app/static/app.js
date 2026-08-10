@@ -495,6 +495,9 @@ async function initialize() {
   }
   try {
     state.config = await api("/api/config");
+    if (window.MWB_I18N && typeof window.MWB_I18N.setDeployment === "function") {
+      window.MWB_I18N.setDeployment(state.config.deployment || "nas");
+    }
     fillRootSelects();
     document.getElementById("versionBadge").textContent = `v${state.config.version}`;
     refreshGpuBadge();

@@ -72,6 +72,7 @@ function Get-LocalConfiguration {
 
 function Set-LocalEnvironment([hashtable]$Config) {
     $env:APP_TITLE = "音视频与 TextGrid 处理工作台（本地版）"
+    $env:DEPLOYMENT = "local"
     $env:MEDIA_ROOTS = $Config["MEDIA_ROOTS"]
     $env:STATE_DIR = $StateRoot
     $env:DATABASE_PATH = Join-Path $StateRoot "jobs.sqlite3"

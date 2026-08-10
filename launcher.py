@@ -25,6 +25,11 @@ def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"))
 
 
+def bi(zh: str, en: str) -> str:
+    """Bilingual console line for local Windows users."""
+    return f"{zh} / {en}"
+
+
 def install_dir() -> Path:
     """Writable directory next to the exe (or project root in dev)."""
     if is_frozen():
@@ -102,11 +107,11 @@ def ensure_local_config() -> dict[str, str]:
                 ),
                 encoding="utf-8",
             )
-            print(f"已创建本地配置：{config_path}")
+            print(bi(f"已创建本地配置：{config_path}", f"Created local config: {config_path}"))
         else:
             config_path.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-            print(f"已从模板创建本地配置：{config_path}")
-            print("如本机盘符不同，请编辑 MEDIA_ROOTS 后重新启动。")
+            print(bi(f"已从模板创建本地配置：{config_path}", f"Created local config from template: {config_path}"))
+            print(bi("如本机盘符不同，请编辑 MEDIA_ROOTS 后重新启动。", "Edit MEDIA_ROOTS if your drive letters differ, then restart."))
 
     config = parse_env_file(config_path)
     required = (
@@ -133,6 +138,7 @@ def apply_environment(config: dict[str, str]) -> tuple[str, int]:
         raise SystemExit(f"本地版只允许监听 127.0.0.1 或 localhost，当前为：{host}")
 
     os.environ["APP_TITLE"] = "音视频与 TextGrid 处理工作台（本地版）"
+    os.environ["DEPLOYMENT"] = "local"
     os.environ["MEDIA_ROOTS"] = config["MEDIA_ROOTS"]
     os.environ["STATE_DIR"] = str(state)
     os.environ["DATABASE_PATH"] = str(state / "jobs.sqlite3")
@@ -267,14 +273,14 @@ def cmd_stop() -> int:
     for role in ("worker", "web", "launcher"):
         pid = read_pid(role)
         if pid is None:
-            print(f"{role} 未运行")
+            print(bi(f"{role} 未运行", f"{role} not running"))
             continue
         kill_pid(pid)
         clear_pid(role)
-        print(f"已停止 {role}（PID {pid}）")
+        print(bi(f"已停止 {role}（PID {pid}）", f"Stopped {role} (PID {pid})"))
         stopped = True
     if not stopped:
-        print("没有正在运行的本地工作台进程。")
+        print(bi("没有正在运行的本地工作台进程。", "No local workbench processes are running."))
     return 0
 
 
@@ -284,14 +290,15 @@ def cmd_status() -> int:
     port = int(config["LOCAL_WEB_PORT"])
     for role in ("launcher", "web", "worker"):
         pid = read_pid(role)
-        print(f"{role} PID：{pid if pid is not None else '未运行'}")
-    print(f"本地地址：http://{host}:{port}")
+        label = bi("未运行", "not running") if pid is None else str(pid)
+        print(f"{role} PID: {label}")
+    print(bi(f"本地地址：http://{host}:{port}", f"Local URL: http://{host}:{port}"))
     try:
         with urllib.request.urlopen(f"http://{host}:{port}/health", timeout=3) as resp:
-            print(f"健康状态：{resp.read().decode('utf-8', errors='replace')}")
+            print(bi("健康状态", "Health") + f"：{resp.read().decode('utf-8', errors='replace')}")
         return 0
     except Exception as exc:
-        print(f"健康状态：不可访问（{exc}）")
+        print(bi(f"健康状态：不可访问（{exc}）", f"Health: unreachable ({exc})"))
         return 1
 
 
@@ -302,13 +309,13 @@ def cmd_start(no_browser: bool) -> int:
     _, _, _, logs = runtime_dirs()
 
     if read_pid("web") or read_pid("worker"):
-        print("检测到已有实例，先尝试打开页面…")
+        print(bi("检测到已有实例，先尝试打开页面…", "Existing instance detected; opening page…"))
         if wait_healthy(host, port, timeout=5):
             if not no_browser:
                 webbrowser.open(f"http://{host}:{port}")
-            print(f"本地工作台已在运行：http://{host}:{port}")
+            print(bi(f"本地工作台已在运行：http://{host}:{port}", f"Local workbench already running: http://{host}:{port}"))
             return 0
-        print("旧实例不健康，正在清理后重启…")
+        print(bi("旧实例不健康，正在清理后重启…", "Previous instance unhealthy; restarting…"))
         cmd_stop()
 
     write_pid("launcher", os.getpid())
@@ -346,27 +353,44 @@ def cmd_start(no_browser: bool) -> int:
     try:
         if not wait_healthy(host, port, timeout=60):
             raise SystemExit(
-                f"Web/Worker 未在 60 秒内进入健康状态，请查看日志目录：{logs}"
+                bi(
+                    f"Web/Worker 未在 60 秒内进入健康状态，请查看日志目录：{logs}",
+                    f"Web/Worker not healthy within 60s; see logs: {logs}",
+                )
             )
-        print(f"本地工作台已启动：http://{host}:{port}")
-        print(f"Web PID：{web.pid}；Worker PID：{worker.pid}")
-        print(f"允许访问：{config['MEDIA_ROOTS']}")
-        print(f"状态目录：{install_dir() / '.local' / 'state'}")
-        print("关闭本窗口将停止服务。也可运行：MediaWorkbenchWeb.exe --stop")
+        print(bi(f"本地工作台已启动：http://{host}:{port}", f"Local workbench started: http://{host}:{port}"))
+        print(f"Web PID: {web.pid}; Worker PID: {worker.pid}")
+        print(bi(f"允许访问：{config['MEDIA_ROOTS']}", f"Allowed roots: {config['MEDIA_ROOTS']}"))
+        print(bi(f"状态目录：{install_dir() / '.local' / 'state'}", f"State dir: {install_dir() / '.local' / 'state'}"))
+        print(
+            bi(
+                "关闭本窗口将停止服务。也可运行：MediaWorkbenchWeb.exe --stop",
+                "Closing this window stops the service. Or run: MediaWorkbenchWeb.exe --stop",
+            )
+        )
+        print(bi("页面右上角可切换 中文 / EN。", "Use top-right 中文 / EN to switch UI language."))
         if not no_browser:
             webbrowser.open(f"http://{host}:{port}")
 
         # Keep parent alive; stop children when it exits.
         while True:
             if web.poll() is not None:
-                raise SystemExit(f"Web 进程已退出，代码 {web.returncode}。详见 {logs}")
+                raise SystemExit(
+                    bi(
+                        f"Web 进程已退出，代码 {web.returncode}。详见 {logs}",
+                        f"Web process exited with code {web.returncode}. See {logs}",
+                    )
+                )
             if worker.poll() is not None:
                 raise SystemExit(
-                    f"Worker 进程已退出，代码 {worker.returncode}。详见 {logs}"
+                    bi(
+                        f"Worker 进程已退出，代码 {worker.returncode}。详见 {logs}",
+                        f"Worker process exited with code {worker.returncode}. See {logs}",
+                    )
                 )
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\n正在停止…")
+        print("\n" + bi("正在停止…", "Stopping…"))
         return 0
     finally:
         for proc, role in ((worker, "worker"), (web, "web")):
@@ -383,16 +407,30 @@ def cmd_start(no_browser: bool) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="音视频与 TextGrid 处理工作台（本地版）")
+    parser = argparse.ArgumentParser(
+        description="音视频与 TextGrid 处理工作台（本地版） / Media & TextGrid Workbench (local)"
+    )
     parser.add_argument(
         "--role",
         choices=("launcher", "web", "worker"),
         default="launcher",
         help=argparse.SUPPRESS,
     )
-    parser.add_argument("--stop", action="store_true", help="停止本地 Web/Worker")
-    parser.add_argument("--status", action="store_true", help="查看运行状态")
-    parser.add_argument("--no-browser", action="store_true", help="启动时不打开浏览器")
+    parser.add_argument(
+        "--stop",
+        action="store_true",
+        help="停止本地 Web/Worker / Stop local web and worker",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="查看运行状态 / Show running status",
+    )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="启动时不打开浏览器 / Do not open a browser on start",
+    )
     return parser
 
 

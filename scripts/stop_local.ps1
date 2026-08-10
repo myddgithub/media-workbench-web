@@ -25,4 +25,4 @@ if ($null -ne $webProcessId -and -not $Force) {
 
 Stop-ManagedProcess "worker"
 Stop-ManagedProcess "web"
-Write-Host "本地工作台已停止；NAS 版不受影响。"
+Write-Host "本地工作台已停止 / Local workbench stopped (NAS edition unaffected)."

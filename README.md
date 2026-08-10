@@ -17,6 +17,8 @@
 - **完整输出**：媒体先写临时文件，成功后原子发布；取消或失败不会留下伪装成成品的文件。
 - **中英文界面**：右上角 **中文 / EN** 切换；记忆 cookie `mwb_lang` 与 `localStorage`；
   也可用 `?lang=zh` / `?lang=en`。文案在 `app/static/i18n.js`。
+  本地版（`DEPLOYMENT=local`）会显示「本地版」标题与本机路径用语；NAS 与 Windows 本地/exe
+  分发包使用同一套静态资源。
 
 ## 为什么是独立服务
 

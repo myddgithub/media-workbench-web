@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>音视频与 TextGrid 处理工作台</title>
   <link rel="icon" type="image/png" sizes="256x256" href="/static/favicon.png">
-  <link rel="stylesheet" href="/static/style.css?v=1.1.0">
+  <link rel="stylesheet" href="/static/style.css?v=1.2.0">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">NAS MEDIA WORKBENCH</p>
+      <p class="eyebrow" data-i18n="eyebrow">NAS MEDIA WORKBENCH</p>
       <h1 data-i18n="appTitle">音视频与 TextGrid 处理工作台</h1>
       <p class="subtitle" data-i18n="subtitle">转换、同步切分、片段合并和区间抽取在 NAS 后台持续执行</p>
     </div>
@@ -107,7 +107,7 @@
   </main>
 
   <dialog id="pickerDialog" class="picker-dialog">
-    <div class="dialog-heading"><div><p class="eyebrow">NAS PATH</p><h3 data-i18n="pickerTitle">选择 NAS 文件或目录</h3></div><button class="icon-button" data-close-picker data-i18n-aria="close" aria-label="关闭">×</button></div>
+    <div class="dialog-heading"><div><p class="eyebrow" data-i18n="pathEyebrow">NAS PATH</p><h3 data-i18n="pickerTitle">选择 NAS 文件或目录</h3></div><button class="icon-button" data-close-picker data-i18n-aria="close" aria-label="关闭">×</button></div>
     <div id="pickerPath" class="picker-path"></div>
     <div id="pickerItems" class="picker-items"></div>
     <div class="dialog-actions"><button type="button" class="secondary" id="pickerUp" data-i18n="upLevel">上一级</button><span id="pickerSelection" class="hint"></span><button type="button" class="primary" id="pickerChoose" data-i18n="chooseDir">选择当前目录</button></div>
@@ -119,7 +119,7 @@
   </dialog>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="/static/i18n.js?v=1.1.0"></script>
-  <script src="/static/app.js?v=1.1.0"></script>
+  <script src="/static/i18n.js?v=1.2.0"></script>
+  <script src="/static/app.js?v=1.2.0"></script>
 </body>
 </html>

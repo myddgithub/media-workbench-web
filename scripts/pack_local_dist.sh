@@ -194,11 +194,13 @@ built=$(date -Iseconds)
 host_pack_python=${HOST_WIN_PYTHON}
 EOF
 
-# End-user Chinese readme
+# End-user bilingual readme (zh + en)
 cat > "${STAGING}/使用说明.txt" <<'EOF'
 音视频与 TextGrid 处理工作台 — Windows 本地版（零依赖分发包）
-============================================================
+Media & TextGrid Workbench — Windows local edition (zero-dep package)
+====================================================================
 
+【中文】
 一、对方电脑需要准备什么
 ------------------------
 1. Windows 10/11（64 位）
@@ -219,8 +221,9 @@ cat > "${STAGING}/使用说明.txt" <<'EOF'
    - 若没有 D 盘，可改成例如：本机C盘=C:\Users\用户名\Videos
 3. 双击 start-local.cmd
    - 成功后浏览器打开 http://127.0.0.1:8768
-4. 查看状态：双击 status-local.cmd
-5. 停止服务：双击 stop-local.cmd
+4. 页面右上角可切换 中文 / EN
+5. 查看状态：双击 status-local.cmd
+6. 停止服务：双击 stop-local.cmd
 
 三、注意
 --------
@@ -243,6 +246,21 @@ A: 修改 .env.local 里的 LOCAL_WEB_PORT，或先 stop-local.cmd 再启动
 
 Q: 强制停止？
 A: powershell -ExecutionPolicy Bypass -File scripts\stop_local.ps1 -Force
+
+【English】
+Requirements: Windows 10/11 x64. No Python / FFmpeg / network install needed.
+Bundled: portable Python (vendor\python), deps, ffmpeg/ffprobe (vendor\ffmpeg).
+
+How to use
+----------
+1. Unzip to a writable folder (job DB lives under .local\)
+2. Check MEDIA_ROOTS in .env.local.example (default: 本机D盘=D:\)
+3. Double-click start-local.cmd → http://127.0.0.1:8768
+4. Top-right: switch 中文 / EN
+5. status-local.cmd / stop-local.cmd for status and stop
+
+Notes: loopback only (127.0.0.1); do not delete vendor\; do not point MEDIA_ROOTS
+at NAS mapped drives unless intentional. Antivirus may need an allow-list.
 EOF
 
 # Exclude runtime artifacts if any leaked

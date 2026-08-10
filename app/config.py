@@ -23,6 +23,7 @@ class Settings:
     ffprobe: str
     poll_seconds: float
     app_title: str
+    deployment: str  # "nas" | "local"
 
 
 def _root_key(label: str) -> str:
@@ -55,6 +56,13 @@ def parse_media_roots(raw: str | None) -> dict[str, MediaRoot]:
     return roots
 
 
+def _parse_deployment(raw: str | None) -> str:
+    value = (raw or "nas").strip().lower()
+    if value in ("local", "desktop", "win", "windows"):
+        return "local"
+    return "nas"
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     state_dir = Path(os.getenv("STATE_DIR", "/state"))
@@ -66,4 +74,5 @@ def get_settings() -> Settings:
         ffprobe=os.getenv("FFPROBE_BIN", "ffprobe"),
         poll_seconds=max(0.2, float(os.getenv("JOB_POLL_SECONDS", "1"))),
         app_title=os.getenv("APP_TITLE", "音视频与 TextGrid 处理工作台"),
+        deployment=_parse_deployment(os.getenv("DEPLOYMENT")),
     )

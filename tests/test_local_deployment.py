@@ -47,6 +47,10 @@ def test_pack_local_dist_script_is_zero_dep_standalone():
     assert "使用说明.txt" in pack
     assert "不需要安装 Python" in pack
     assert "FFMPEG_BIN=vendor\\ffmpeg\\ffmpeg.exe" in pack
+    # Bilingual end-user readme in the zip
+    assert "【English】" in pack
+    assert "Media & TextGrid Workbench" in pack
+    assert "中文 / EN" in pack
     # Embeddable ._pth ignores PYTHONPATH; project root must be listed explicitly.
     assert '"..\\\\.."' in pack or r'"..\.."' in pack
 
@@ -60,4 +64,23 @@ def test_exe_launcher_and_pack_scripts_exist():
     assert "def cmd_start" in launcher
     assert "127.0.0.1" in launcher
     assert "--stop" in launcher
+    assert 'DEPLOYMENT"] = "local"' in launcher or 'DEPLOYMENT"]="local"' in launcher
+    assert "def bi(" in launcher
+    pack_exe = (ROOT / "scripts" / "pack_local_exe.ps1").read_text(encoding="utf-8")
+    assert "【English】" in pack_exe
+    assert "中文 / EN" in pack_exe
+
+
+def test_ui_i18n_static_assets_present():
+    static = ROOT / "app" / "static"
+    assert (static / "i18n.js").is_file()
+    i18n = (static / "i18n.js").read_text(encoding="utf-8")
+    assert "appTitleLocal" in i18n
+    assert "setDeployment" in i18n
+    assert "Media & TextGrid Workbench" in i18n
+    html = (static / "index.html").read_text(encoding="utf-8")
+    assert "i18n.js" in html or "data-i18n" in html
+    assert 'data-i18n="appTitle"' in html
+    common = (ROOT / "scripts" / "local_common.ps1").read_text(encoding="utf-8")
+    assert 'DEPLOYMENT = "local"' in common
 

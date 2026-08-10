@@ -64,10 +64,11 @@ try {
         throw "本地 Web/Worker 未在 45 秒内进入健康状态，请查看 $LogRoot"
     }
 
-    Write-Host "本地工作台已启动：http://${webHost}:$webPort"
-    Write-Host "Web PID：$webProcessId；Worker PID：$workerProcessId"
-    Write-Host "本地状态目录：$StateRoot"
-    Write-Host "允许访问：$($config['MEDIA_ROOTS'])"
+    Write-Host "本地工作台已启动 / Local workbench started: http://${webHost}:$webPort"
+    Write-Host "Web PID: $webProcessId; Worker PID: $workerProcessId"
+    Write-Host "本地状态目录 / State: $StateRoot"
+    Write-Host "允许访问 / Allowed roots: $($config['MEDIA_ROOTS'])"
+    Write-Host "页面右上角可切换 中文 / EN (UI language switcher)"
     if (-not $NoBrowser) {
         Start-Process "http://${webHost}:$webPort" | Out-Null
     }
