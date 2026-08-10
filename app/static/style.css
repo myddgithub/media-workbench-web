@@ -26,7 +26,17 @@ h3 { margin-bottom: 0; }
 .eyebrow { margin-bottom: 7px; color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .17em; }
 .subtitle, .panel-heading p, .hint { color: var(--muted); }
 .subtitle { margin-bottom: 0; }
-.health-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.health-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.langsw {
+  display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line);
+  border-radius: 999px; background: #111922;
+}
+.langsw a {
+  display: inline-block; padding: 5px 10px; border-radius: 999px; text-decoration: none;
+  font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.2;
+}
+.langsw a:hover { color: var(--text); background: var(--panel-2); }
+.langsw a.on { color: #071514; background: var(--cyan); }
 .badge { border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; font-size: 12px; white-space: nowrap; }
 .badge.good { color: var(--green); border-color: #29634a; background: #102a20; }
 .badge.bad { color: var(--red); border-color: #693c3b; background: #2c1718; }

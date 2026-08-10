@@ -3,10 +3,24 @@ const state = {
   picker: null,
   currentJob: null,
   toastTimer: null,
+  lastJobs: [],
 };
 
-const KIND_LABELS = { convert: "格式转换", cut: "同步切分", merge: "片段合并", extract: "区间抽取" };
-const STATUS_LABELS = { queued: "排队中", running: "执行中", cancelling: "停止中", succeeded: "已完成", failed: "失败", cancelled: "已取消" };
+function t(key, vars) {
+  return window.MWB_I18N ? window.MWB_I18N.t(key, vars) : key;
+}
+
+function tx(msg) {
+  return window.MWB_I18N ? window.MWB_I18N.translateMessage(msg) : String(msg ?? "");
+}
+
+function kindLabel(kind) {
+  return window.MWB_I18N ? window.MWB_I18N.kindLabel(kind) : kind;
+}
+
+function statusLabel(status) {
+  return window.MWB_I18N ? window.MWB_I18N.statusLabel(status) : status;
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -19,16 +33,16 @@ async function api(url, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    let message = data.detail || `请求失败 (${response.status})`;
-    if (Array.isArray(message)) message = message.map(item => item.msg).join("；");
-    throw new Error(message);
+    let message = data.detail || `${t("requestFailed")} (${response.status})`;
+    if (Array.isArray(message)) message = message.map(item => item.msg).join("; ");
+    throw new Error(tx(message));
   }
   return data;
 }
 
 function toast(message, error = false) {
   const node = document.getElementById("toast");
-  node.textContent = message;
+  node.textContent = tx(message);
   node.className = `toast show${error ? " error" : ""}`;
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => node.className = "toast", 3200);
@@ -39,16 +53,23 @@ function buildCmePaths() {
     const prefix = container.dataset.prefix;
     const defaultFolder = { cut: "_segments", merge: "_merged", extract: "_extract" }[prefix];
     container.innerHTML = `
-      <label>输入位置<select id="${prefix}InputRoot" class="root-select"></select></label>
-      <label class="path-field">输入目录<span><input id="${prefix}InputPath" placeholder="选择包含同名三件套的目录"><button type="button" class="browse" data-picker="${prefix}InputPath" data-root="${prefix}InputRoot">选择</button></span></label>
-      <label>输出位置<select id="${prefix}OutputRoot" class="root-select"></select></label>
-      <label class="path-field">输出目录<span><input id="${prefix}OutputPath" data-default-folder="${defaultFolder}" placeholder="默认在输入目录下建立 ${defaultFolder}"><button type="button" class="browse" data-picker="${prefix}OutputPath" data-root="${prefix}OutputRoot">选择</button></span></label>`;
+      <label><span data-i18n="inputRoot">${t("inputRoot")}</span><select id="${prefix}InputRoot" class="root-select"></select></label>
+      <label class="path-field"><span data-i18n="inputDir">${t("inputDir")}</span><span><input id="${prefix}InputPath" data-i18n-placeholder="inputPathPh" placeholder="${escapeHtml(t("inputPathPh"))}"><button type="button" class="browse" data-picker="${prefix}InputPath" data-root="${prefix}InputRoot" data-i18n="choose">${t("choose")}</button></span></label>
+      <label><span data-i18n="outputRoot">${t("outputRoot")}</span><select id="${prefix}OutputRoot" class="root-select"></select></label>
+      <label class="path-field"><span data-i18n="outputDirLabel">${t("outputDirLabel")}</span><span><input id="${prefix}OutputPath" data-default-folder="${defaultFolder}" placeholder="${escapeHtml(t("outputPathPhPrefix") + defaultFolder)}"><button type="button" class="browse" data-picker="${prefix}OutputPath" data-root="${prefix}OutputRoot" data-i18n="choose">${t("choose")}</button></span></label>`;
   });
 }
 
 function fillRootSelects() {
-  const options = state.config.roots.map(root => `<option value="${escapeHtml(root.key)}" ${root.available ? "" : "disabled"}>${escapeHtml(root.label)}${root.available ? "" : "（不可用）"}</option>`).join("");
-  document.querySelectorAll(".root-select").forEach(select => select.innerHTML = options);
+  if (!state.config) return;
+  const options = state.config.roots.map(root =>
+    `<option value="${escapeHtml(root.key)}" ${root.available ? "" : "disabled"}>${escapeHtml(root.label)}${root.available ? "" : t("unavailable")}</option>`
+  ).join("");
+  document.querySelectorAll(".root-select").forEach(select => {
+    const prev = select.value;
+    select.innerHTML = options;
+    if (prev && [...select.options].some(o => o.value === prev && !o.disabled)) select.value = prev;
+  });
 }
 
 function pathJoin(parent, child) {
@@ -142,7 +163,7 @@ function mergePayload() {
 function parseRanges(text) {
   return text.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
     const match = line.match(/^(\d+(?:\.\d+)?)\s*[-—–,]\s*(\d+(?:\.\d+)?)$/);
-    if (!match) throw new Error(`区间格式无效：${line}`);
+    if (!match) throw new Error(t("invalidRange", { line }));
     return { start: Number(match[1]), end: Number(match[2]) };
   });
 }
@@ -158,12 +179,9 @@ function extractPayload() {
 }
 
 async function submitJob(kind, payload) {
-  if (!payload.input_path && kind !== "convert") {
-    // Root itself remains a valid directory; the warning is intentionally omitted.
-  }
-  if (!payload.output_path) throw new Error("请设置输出目录");
+  if (!payload.output_path) throw new Error(t("setOutput"));
   const job = await api("/api/jobs", { method: "POST", body: JSON.stringify({ kind, payload }) });
-  toast(`任务 ${job.id} 已进入队列`);
+  toast(t("jobQueued", { id: job.id }));
   await loadJobs();
   document.querySelector(".jobs").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -210,7 +228,7 @@ function setupPresets() {
       document.getElementById("crf").value = "23";
       document.getElementById("convertWorkers").value = "1";
     }
-    toast(`已应用：${button.textContent}`);
+    toast(t("applied", { name: button.textContent.trim() }));
   }));
 }
 
@@ -220,18 +238,22 @@ async function scanForm(button) {
   const common = commonPayload(prefix);
   const requestedMode = button.dataset.scanMode === "convert" ? document.getElementById("convertMode").value : "cme";
   const resultNode = document.getElementById(`${prefix}Scan`);
-  resultNode.textContent = "正在扫描……";
+  resultNode.textContent = t("scanning");
   try {
     const result = await api("/api/scan", {
       method: "POST",
       body: JSON.stringify({ root: common.input_root, path: common.input_path, mode: requestedMode, recursive: document.getElementById("recursive")?.checked ?? false }),
     });
     if (requestedMode === "cme") {
-      resultNode.textContent = `发现 ${result.groups} 个主文件组、${result.segments} 个分段、${result.prefixes.length} 个可合并前缀`;
+      resultNode.textContent = t("foundGroups", {
+        groups: result.groups,
+        segments: result.segments,
+        prefixes: result.prefixes.length,
+      });
       if (prefix === "merge" && !document.getElementById("mergePrefixes").value.trim()) document.getElementById("mergePrefixes").value = result.prefixes.join("\n");
       if (prefix === "extract" && !document.getElementById("extractBase").value.trim() && result.items[0]) document.getElementById("extractBase").value = result.items[0].base;
     } else {
-      resultNode.textContent = `发现 ${result.count} 个可转换文件${result.truncated ? "（仅预览前 500 个）" : ""}`;
+      resultNode.textContent = t("foundConvert", { count: result.count }) + (result.truncated ? t("preview500") : "");
     }
   } catch (error) {
     resultNode.textContent = "";
@@ -253,13 +275,13 @@ async function loadPicker(path = "") {
   document.getElementById("pickerSelection").textContent = "";
   document.getElementById("pickerUp").disabled = data.path === "";
   const items = document.getElementById("pickerItems");
-  items.innerHTML = data.items.length ? "" : '<p class="empty">该目录为空</p>';
+  items.innerHTML = data.items.length ? "" : `<p class="empty">${escapeHtml(t("emptyDir"))}</p>`;
   data.items.forEach(item => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "picker-item";
     const icon = item.type === "directory" ? "📁" : "📄";
-    const size = item.type === "directory" ? "目录" : formatSize(item.size);
+    const size = item.type === "directory" ? t("directory") : formatSize(item.size);
     button.innerHTML = `<span>${icon}</span><span>${escapeHtml(item.name)}</span><small>${size}</small>`;
     if (item.type === "directory") {
       button.addEventListener("click", () => loadPicker(item.path).catch(error => toast(error.message, true)));
@@ -329,22 +351,27 @@ function formatSize(bytes) {
 
 function formatTime(value) {
   if (!value) return "–";
-  return new Date(value).toLocaleString("zh-CN", { hour12: false });
+  const locale = (window.MWB_I18N && window.MWB_I18N.lang === "en") ? "en-US" : "zh-CN";
+  return new Date(value).toLocaleString(locale, { hour12: false });
 }
 
 function renderJobs(jobs) {
   const container = document.getElementById("jobList");
-  if (!jobs.length) { container.innerHTML = '<p class="empty">还没有任务。可从上方任一功能页提交。</p>'; return; }
+  state.lastJobs = jobs || [];
+  if (!jobs.length) {
+    container.innerHTML = `<p class="empty">${escapeHtml(t("noJobs"))}</p>`;
+    return;
+  }
   container.innerHTML = jobs.map(job => {
     const progress = Math.round((job.progress || 0) * 100);
     const canCancel = ["queued", "running", "cancelling"].includes(job.status);
     const canDelete = ["succeeded", "failed", "cancelled"].includes(job.status);
     const output = `${job.payload.output_root}:/${job.payload.output_path}`;
     return `<article class="job-row">
-      <div><div class="job-kind">${KIND_LABELS[job.kind]}</div><span class="state ${job.status}">${STATUS_LABELS[job.status]}</span></div>
-      <div class="job-meta"><strong>${escapeHtml(job.message || "等待执行")}</strong><small>${escapeHtml(output)} · ${formatTime(job.created_at)}</small></div>
+      <div><div class="job-kind">${escapeHtml(kindLabel(job.kind))}</div><span class="state ${job.status}">${escapeHtml(statusLabel(job.status))}</span></div>
+      <div class="job-meta"><strong>${escapeHtml(tx(job.message || t("waiting")))}</strong><small>${escapeHtml(output)} · ${formatTime(job.created_at)}</small></div>
       <div class="job-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress}%"></div></div><small>${progress}% · ${job.id}</small></div>
-      <div class="job-actions"><button data-action="detail" data-id="${job.id}">详情</button>${canCancel ? `<button data-action="cancel" data-id="${job.id}">停止</button>` : ""}${canDelete ? `<button data-action="delete" data-id="${job.id}">删除</button>` : ""}</div>
+      <div class="job-actions"><button data-action="detail" data-id="${job.id}">${escapeHtml(t("detail"))}</button>${canCancel ? `<button data-action="cancel" data-id="${job.id}">${escapeHtml(t("stop"))}</button>` : ""}${canDelete ? `<button data-action="delete" data-id="${job.id}">${escapeHtml(t("delete"))}</button>` : ""}</div>
     </article>`;
   }).join("");
 }
@@ -362,13 +389,22 @@ async function loadJobs() {
 async function showJob(id, open = true) {
   const job = await api(`/api/jobs/${id}`);
   state.currentJob = id;
-  document.getElementById("jobDialogTitle").textContent = `${KIND_LABELS[job.kind]} · ${id}`;
+  document.getElementById("jobDialogTitle").textContent = `${kindLabel(job.kind)} · ${id}`;
   const files = job.result?.files || [];
-  const results = files.length ? `<h3>结果文件（${files.length}）</h3><div class="result-list">${files.map((file, index) => `<a class="result-link" href="/api/jobs/${id}/result/${index}" target="_blank"><span>↗ ${escapeHtml(file.root)}:/${escapeHtml(file.path)}</span></a>`).join("")}</div>` : "";
+  const results = files.length
+    ? `<h3>${escapeHtml(t("resultFiles", { n: files.length }))}</h3><div class="result-list">${files.map((file, index) => `<a class="result-link" href="/api/jobs/${id}/result/${index}" target="_blank"><span>↗ ${escapeHtml(file.root)}:/${escapeHtml(file.path)}</span></a>`).join("")}</div>`
+    : "";
   document.getElementById("jobDetail").innerHTML = `
-    <dl class="detail-grid"><dt>状态</dt><dd><span class="state ${job.status}">${STATUS_LABELS[job.status]}</span></dd><dt>进度</dt><dd>${Math.round(job.progress * 100)}% · ${escapeHtml(job.message)}</dd><dt>输入</dt><dd>${escapeHtml(job.payload.input_root)}:/${escapeHtml(job.payload.input_path)}</dd><dt>输出</dt><dd>${escapeHtml(job.payload.output_root)}:/${escapeHtml(job.payload.output_path)}</dd><dt>创建时间</dt><dd>${formatTime(job.created_at)}</dd><dt>完成时间</dt><dd>${formatTime(job.finished_at)}</dd></dl>
-    ${job.result?.summary ? `<p>${escapeHtml(job.result.summary)}</p>` : ""}${results}
-    <h3>运行日志</h3><pre class="log-view">${escapeHtml(job.logs || "尚无日志")}</pre>`;
+    <dl class="detail-grid">
+      <dt>${escapeHtml(t("status"))}</dt><dd><span class="state ${job.status}">${escapeHtml(statusLabel(job.status))}</span></dd>
+      <dt>${escapeHtml(t("progress"))}</dt><dd>${Math.round(job.progress * 100)}% · ${escapeHtml(tx(job.message))}</dd>
+      <dt>${escapeHtml(t("input"))}</dt><dd>${escapeHtml(job.payload.input_root)}:/${escapeHtml(job.payload.input_path)}</dd>
+      <dt>${escapeHtml(t("output"))}</dt><dd>${escapeHtml(job.payload.output_root)}:/${escapeHtml(job.payload.output_path)}</dd>
+      <dt>${escapeHtml(t("createdAt"))}</dt><dd>${formatTime(job.created_at)}</dd>
+      <dt>${escapeHtml(t("finishedAt"))}</dt><dd>${formatTime(job.finished_at)}</dd>
+    </dl>
+    ${job.result?.summary ? `<p>${escapeHtml(tx(job.result.summary))}</p>` : ""}${results}
+    <h3>${escapeHtml(t("runLog"))}</h3><pre class="log-view">${escapeHtml(job.logs || t("noLog"))}</pre>`;
   const log = document.querySelector(".log-view"); if (log) log.scrollTop = log.scrollHeight;
   if (open) document.getElementById("jobDialog").showModal();
 }
@@ -379,35 +415,90 @@ function setupJobs() {
     const button = event.target.closest("[data-action]"); if (!button) return;
     try {
       if (button.dataset.action === "detail") await showJob(button.dataset.id);
-      if (button.dataset.action === "cancel") { await api(`/api/jobs/${button.dataset.id}/cancel`, { method: "POST" }); toast("已发送停止请求"); await loadJobs(); }
-      if (button.dataset.action === "delete" && confirm("只删除这条任务记录，不删除结果文件。确定继续吗？")) { await api(`/api/jobs/${button.dataset.id}`, { method: "DELETE" }); await loadJobs(); }
+      if (button.dataset.action === "cancel") {
+        await api(`/api/jobs/${button.dataset.id}/cancel`, { method: "POST" });
+        toast(t("cancelSent"));
+        await loadJobs();
+      }
+      if (button.dataset.action === "delete" && confirm(t("confirmDelete"))) {
+        await api(`/api/jobs/${button.dataset.id}`, { method: "DELETE" });
+        await loadJobs();
+      }
     } catch (error) { toast(error.message, true); }
   });
-  document.querySelector("[data-close-job]").addEventListener("click", () => { document.getElementById("jobDialog").close(); state.currentJob = null; });
+  document.querySelector("[data-close-job]").addEventListener("click", () => {
+    document.getElementById("jobDialog").close();
+    state.currentJob = null;
+  });
 }
 
 async function refreshHealth() {
   try {
     const health = await api("/health");
     const worker = document.getElementById("workerBadge");
-    worker.textContent = health.worker_alive ? "worker 正常" : "worker 未就绪";
+    worker.textContent = health.worker_alive ? t("workerOk") : t("workerDown");
     worker.className = `badge ${health.worker_alive ? "good" : "bad"}`;
   } catch (_) {
-    const worker = document.getElementById("workerBadge"); worker.textContent = "服务异常"; worker.className = "badge bad";
+    const worker = document.getElementById("workerBadge");
+    worker.textContent = t("serviceError");
+    worker.className = "badge bad";
   }
+}
+
+function refreshGpuBadge() {
+  if (!state.config) return;
+  const gpu = document.getElementById("gpuBadge");
+  gpu.textContent = state.config.capabilities.intel_gpu ? t("gpuOk") : t("gpuNo");
+  gpu.className = `badge ${state.config.capabilities.intel_gpu ? "good" : "muted"}`;
+}
+
+function onLangChange() {
+  // rebuild dynamic path grids placeholders / labels, keep form values
+  const saved = {};
+  ["convert", "cut", "merge", "extract"].forEach(prefix => {
+    ["InputRoot", "InputPath", "OutputRoot", "OutputPath"].forEach(suffix => {
+      const el = document.getElementById(prefix + suffix);
+      if (el) saved[prefix + suffix] = { value: el.value, edited: el.dataset.edited };
+    });
+  });
+  buildCmePaths();
+  setupDefaults();
+  fillRootSelects();
+  Object.entries(saved).forEach(([id, meta]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = meta.value || "";
+    if (meta.edited) el.dataset.edited = meta.edited;
+  });
+  // CME path placeholders for default folders
+  document.querySelectorAll("[data-default-folder]").forEach(input => {
+    if (!input.value) {
+      input.placeholder = t("outputPathPhPrefix") + (input.dataset.defaultFolder || "");
+    }
+  });
+  if (window.MWB_I18N) window.MWB_I18N.applyStatic();
+  refreshGpuBadge();
+  refreshHealth();
+  renderJobs(state.lastJobs || []);
+  // clear scan results (language-dependent)
+  ["convert", "cut", "merge", "extract"].forEach(prefix => {
+    const n = document.getElementById(`${prefix}Scan`);
+    if (n) n.textContent = "";
+  });
 }
 
 async function initialize() {
   buildCmePaths();
   setupTabs(); setupDefaults(); setupForms(); setupPresets(); setupScans(); setupPicker(); setupJobs();
+  if (window.MWB_I18N) {
+    window.MWB_I18N.init(onLangChange);
+  }
   try {
     state.config = await api("/api/config");
     fillRootSelects();
     document.getElementById("versionBadge").textContent = `v${state.config.version}`;
-    const gpu = document.getElementById("gpuBadge");
-    gpu.textContent = state.config.capabilities.intel_gpu ? "Intel QSV 可用" : "Intel QSV 不可用";
-    gpu.className = `badge ${state.config.capabilities.intel_gpu ? "good" : "muted"}`;
-    if (!state.config.capabilities.ffmpeg) toast("服务器未检测到 FFmpeg", true);
+    refreshGpuBadge();
+    if (!state.config.capabilities.ffmpeg) toast(t("noFfmpeg"), true);
   } catch (error) { toast(error.message, true); }
   await Promise.all([loadJobs(), refreshHealth()]);
   setInterval(loadJobs, 2500);
