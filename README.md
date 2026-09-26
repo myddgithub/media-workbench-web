@@ -135,3 +135,6 @@ pytest -q
 
 程序镜像可以按 Git 提交标签回滚。任务数据库保存在 `./state/jobs.sqlite3`，媒体结果始终位于
 `/volume2/Mydata` 的用户指定目录。回滚镜像不会删除或回滚媒体文件。
+## 许可证
+
+本项目采用 MIT 许可证。Copyright (c) 2026 myddgithub。详情见 [LICENSE](./LICENSE)。
